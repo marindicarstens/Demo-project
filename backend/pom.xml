@@ -267,7 +267,19 @@
 		<!-- OWASP Dependency-Check, run by CI as `./mvnw -B -Powasp dependency-check:check`. Kept in a
 		     profile so a plain `verify` stays offline: the scan downloads the NVD database. A
 		     finding with CVSS 8 or higher fails the build. The NVD API key is read from the
-		     NVD_API_KEY environment variable; without one the first download is slow but works.
+		     NVD_API_KEY environment variable.
+		     Without one, the plugin already self-throttles to NVD's anonymous limit (5
+		     requests/30s, vs. 50/30s with a key - confirmed in NvdApiDataSource's bytecode), but
+		     that alone still 429'd on this project's actual first CI run (empty cache, nothing to
+		     fall back to) - the request-count throttle can burst its whole per-window allowance
+		     early and get rate-limited before the window resets. nvdApiDelay adds a flat, even
+		     floor between requests as insurance against that bursting.
+		     nvdApiDelay is NOT key-aware: it applies the same fixed wait whether a key is present
+		     or not, so it also caps a keyed run below what the 50/30s budget would otherwise allow
+		     - a deliberate trade of sync speed for not 429ing, on both paths. Getting a free
+		     NVD_API_KEY (https://nvd.nist.gov/developers/request-an-api-key) is still worth doing:
+		     it's the difference between a first sync that finishes and one that, per NVD's own
+		     long-documented anonymous-limit problem, can take hours.
 		     Held at 12.2.x: 13.0.0 ships an empty default key and then fails every run without one. -->
 		<profile>
 			<id>owasp</id>
@@ -280,6 +292,7 @@
 						<configuration>
 							<failBuildOnCVSS>8</failBuildOnCVSS>
 							<nvdApiKeyEnvironmentVariable>NVD_API_KEY</nvdApiKeyEnvironmentVariable>
+							<nvdApiDelay>6500</nvdApiDelay>
 							<formats>
 								<format>HTML</format>
 							</formats>

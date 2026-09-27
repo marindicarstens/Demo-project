@@ -88,9 +88,12 @@ jobs:
           path: ~/.m2/repository/org/owasp/dependency-check-data
           key: dependency-check-nvd-${{ steps.nvd-week.outputs.week }}
           restore-keys: dependency-check-nvd-
-      # NVD_API_KEY is an optional repo secret (free, from https://nvd.nist.gov/developers/request-an-api-key).
-      # Without it the plugin still runs, but the first uncached download takes 20-30 minutes
-      # because of the NVD's public rate limit. An empty value is ignored by the plugin.
+      # NVD_API_KEY is a repo secret (free, from https://nvd.nist.gov/developers/request-an-api-key).
+      # An empty value is ignored by the plugin, but on a first-ever run (cache above still empty)
+      # this job fails without one: the NVD's anonymous rate limit is strict enough that the
+      # plugin's own throttling can still 429 partway through the sync, not just run slowly. Once
+      # the cache above is warm, only the delta since the last run needs fetching, so a missing
+      # key matters far less on every run after the first.
       - name: Run OWASP Dependency-Check
         working-directory: backend
         env:
