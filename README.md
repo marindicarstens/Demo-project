@@ -71,6 +71,17 @@ sed -i '' "s|^APP_JWT_SIGNING_SECRET=.*|APP_JWT_SIGNING_SECRET=$(openssl rand -b
 docker compose up --build
 ```
 
+Windows has neither `sed` nor `openssl` on PATH by default (Git Bash or WSL2 do, and can use the
+Linux line above instead). In PowerShell:
+
+```powershell
+$bytes = New-Object byte[] 32
+[System.Security.Cryptography.RandomNumberGenerator]::Create().GetBytes($bytes)
+$secret = [Convert]::ToBase64String($bytes)
+(Get-Content .env) -replace '^APP_JWT_SIGNING_SECRET=.*', "APP_JWT_SIGNING_SECRET=$secret" | Set-Content .env
+docker compose up --build
+```
+
 First run builds both images and runs the database migrations (including seed data — see
 [Demo data](#demo-data)) automatically; expect it to take a few minutes the first time, seconds on
 subsequent runs. When it's ready:
