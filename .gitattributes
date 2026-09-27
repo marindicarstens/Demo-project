@@ -1,0 +1,4 @@
+# Force LF on checkout on every platform, regardless of core.autocrlf - Spotless (backend/pom.xml,
+# bound to the validate phase) rejects CRLF as a formatting violation, so a Windows checkout
+# without this fails the Docker build before compilation even starts.
+* text=auto eol=lf
