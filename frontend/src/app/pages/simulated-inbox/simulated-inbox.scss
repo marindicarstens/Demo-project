@@ -1,0 +1,13 @@
+.inbox-page {
+  min-height: 100vh;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  padding: 32px 16px;
+}
+
+.inbox-empty {
+  font-family: 'Segoe UI', Arial, sans-serif;
+  font-size: 14px;
+  color: #5f6368;
+}

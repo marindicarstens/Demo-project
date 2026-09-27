@@ -1,0 +1,68 @@
+@use '../../../styles/shared';
+
+.browse-header {
+  padding-block: 32px 8px;
+}
+
+.flow-badge {
+  display: inline-flex;
+  font-family: var(--db-font-body);
+  font-weight: 700;
+  font-size: 12px;
+  letter-spacing: 0.05em;
+  text-transform: uppercase;
+  color: var(--mat-sys-primary);
+  background: var(--mat-sys-primary-container);
+  padding: 5px 12px;
+  border-radius: var(--db-radius-pill);
+  margin-bottom: 12px;
+}
+
+h1 {
+  font-family: var(--db-font-display);
+  color: var(--mat-sys-tertiary);
+  font-size: clamp(24px, 4vw, 34px);
+  margin: 0;
+}
+
+.selection-summary {
+  margin-top: 24px;
+  padding: 18px 20px;
+  border-radius: var(--db-radius-card);
+  background: var(--mat-sys-primary-container);
+  color: var(--mat-sys-on-primary-container);
+  display: flex;
+  align-items: center;
+  gap: 14px;
+
+  div {
+    display: flex;
+    flex-direction: column;
+    gap: 2px;
+    font-size: 14px;
+  }
+}
+
+.hold-result {
+  padding-block: 32px;
+
+  h1 {
+    margin-bottom: 8px;
+  }
+}
+
+.hold-sub {
+  color: var(--mat-sys-on-surface-variant);
+  font-size: 14.5px;
+  margin: 0 0 24px;
+}
+
+.popup-blocked {
+  @include shared.popup-blocked;
+}
+
+.hold-deadline {
+  font-weight: 700;
+  font-size: 14.5px;
+  margin: 0 0 24px;
+}

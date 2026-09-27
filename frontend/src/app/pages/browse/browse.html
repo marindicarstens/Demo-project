@@ -1,0 +1,107 @@
+@if (hold(); as held) {
+  <section class="hold-result">
+    @if (alreadyConfirmedElsewhere()) {
+      <h1>You're all set, reference {{ held.referenceCode }}</h1>
+      <p class="hold-sub">
+        This appointment was already confirmed from the other tab - use "Look up my booking"
+        above if you need to manage it.
+      </p>
+    } @else {
+      <h1>Almost there — confirm your appointment</h1>
+      <p class="hold-sub">
+        Reference <strong>{{ held.referenceCode }}</strong> — we've opened a simulated
+        confirmation email in a new tab. Click the link there to confirm.
+      </p>
+      <p class="hold-deadline">Confirm by {{ held.holdExpiresAt | date: 'HH:mm' }}</p>
+      @if (emailPopupBlocked()) {
+        <p class="popup-blocked">Your browser blocked the new tab — use the button below to open it instead.</p>
+      }
+      <button mat-stroked-button type="button" (click)="reopenEmail()">Reopen the email</button>
+    }
+  </section>
+} @else {
+  <section class="browse-header">
+    <span class="flow-badge">{{ clientTypeLabel() }}</span>
+    <h1>Find a branch and a time</h1>
+  </section>
+
+  @if (holdExpired()) {
+    <p class="booking-error" role="alert">Your hold expired, so please pick a time again.</p>
+  }
+
+  @if (clientType() === 'NEW_CLIENT' && !contact()) {
+    <app-contact-step (confirmed)="contact.set($event)" />
+  }
+}
+
+@if (showBrowseSteps()) {
+  <app-branch-step
+    [stepNumber]="clientType() === 'NEW_CLIENT' ? 2 : 1"
+    [selected]="selectedBranch()"
+    (branchSelected)="onBranchSelected($event)"
+  />
+
+  @if (selectedBranch()) {
+    <div class="step">
+      <h2 class="step-title">{{ clientType() === 'NEW_CLIENT' ? '3' : '2' }}. Choose a service</h2>
+      @if (serviceTypesResource.error()) {
+        <p class="booking-error" role="alert">Couldn't load the services.</p>
+        <button mat-stroked-button type="button" (click)="serviceTypesResource.reload()">Try again</button>
+      } @else {
+        <mat-chip-listbox aria-label="Service type">
+          @for (serviceType of serviceTypes(); track serviceType.id) {
+            <mat-chip-option [selected]="selectedServiceType()?.id === serviceType.id" (selectionChange)="onServiceChipChange($event, serviceType)">
+              {{ serviceType.name }} · {{ serviceType.durationMinutes }} min
+            </mat-chip-option>
+          }
+        </mat-chip-listbox>
+      }
+    </div>
+  }
+
+  @if (selectedBranch() && selectedServiceType()) {
+    <div class="step">
+      <h2 class="step-title">{{ clientType() === 'NEW_CLIENT' ? '4' : '3' }}. Pick a date and time</h2>
+      <app-slot-picker
+        [branchId]="selectedBranch()?.id ?? ''"
+        [serviceTypeId]="selectedServiceType()?.id ?? ''"
+        [date]="selectedDate()"
+        [min]="minDate"
+        [max]="maxDate"
+        [selectedSlotId]="selectedSlot()?.id ?? null"
+        (dateChanged)="onDateChanged($event)"
+        (slotSelected)="selectSlot($event)"
+      />
+    </div>
+  }
+
+  <!-- Outside the selected-slot block: a 409 clears the selection, and this message says why. -->
+  @if (bookingError() && !directoryMismatch()) {
+    <p class="booking-error" role="alert">{{ bookingError() }}</p>
+  }
+
+  @if (selectedSlot(); as slot) {
+    <div class="selection-summary">
+      <mat-icon>event_available</mat-icon>
+      <div>
+        <strong>{{ selectedBranch()?.name }}</strong>
+        <span>{{ selectedServiceType()?.name }} at {{ slot.startTime | time }} on {{ slot.date | date: 'EEEE, d MMMM' }}</span>
+      </div>
+    </div>
+  }
+
+  @if (selectedSlot() && clientType() === 'NEW_CLIENT') {
+    <button mat-flat-button class="book-button" type="button" [disabled]="booking()" (click)="bookAsNewClient()">
+      {{ booking() ? 'Booking…' : 'Book this appointment' }}
+    </button>
+  }
+
+  @if (selectedSlot() && clientType() === 'EXISTING_CLIENT') {
+    <app-identity-step
+      [booking]="booking()"
+      [mismatchMessage]="directoryMismatch() ? bookingError() : null"
+      (submitted)="bookAsExistingClient($event)"
+      (continueAsNewAccount)="continueAsNewAccount()"
+    />
+  }
+}

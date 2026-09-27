@@ -1,0 +1,16 @@
+<div class="step">
+  <h2 class="step-title">{{ stepNumber() }}. Search for a branch</h2>
+  <mat-form-field appearance="outline" class="branch-field">
+    <mat-label>Branch name or city</mat-label>
+    <input type="text" matInput [(ngModel)]="query" [matAutocomplete]="branchAuto" placeholder="e.g. Sandton, Cape Town..." />
+    <mat-autocomplete #branchAuto="matAutocomplete" [displayWith]="displayBranch" (optionSelected)="branchSelected.emit($event.option.value)">
+      @for (branch of filteredBranches(); track branch.id) {
+        <mat-option [value]="branch">{{ branch.name }} — {{ branch.city }}</mat-option>
+      }
+    </mat-autocomplete>
+  </mat-form-field>
+  @if (branchService.loadFailed()) {
+    <p class="booking-error" role="alert">Couldn't load the branch list.</p>
+    <button mat-stroked-button type="button" (click)="branchService.load()">Try again</button>
+  }
+</div>

@@ -1,0 +1,40 @@
+<section class="cancellation-page">
+  <!-- Always present, so screen readers announce its text as it changes. -->
+  <p class="visually-hidden" role="status">@if (state() === 'loading') {Loading your appointment} @else if (state() === 'cancelling') {Cancelling your appointment}</p>
+  @switch (state()) {
+    @case ('loading') {
+      <mat-spinner diameter="32" aria-hidden="true" />
+    }
+    @case ('preview') {
+      @if (preview(); as details) {
+        @if (details.alreadyCancelled) {
+          <span class="eyebrow success">Already cancelled</span>
+          <h1>This appointment is already cancelled</h1>
+          <p class="sub">Reference {{ details.referenceCode }} — no action needed.</p>
+        } @else {
+          <span class="eyebrow">Cancel this appointment</span>
+          <h1>Cancel your appointment?</h1>
+          <p class="sub">Nothing is cancelled until you confirm below.</p>
+          <div class="details">
+            <strong>{{ details.branchName }}</strong>
+            <span>{{ details.serviceTypeName }} at {{ details.startTime | time }} on {{ details.date | date: 'EEEE, d MMMM' }}</span>
+            <span class="reference">Reference {{ details.referenceCode }}</span>
+          </div>
+          <button mat-flat-button type="button" [disabled]="state() !== 'preview'" (click)="confirmCancellation()">Yes, cancel my appointment</button>
+        }
+      }
+    }
+    @case ('cancelling') {
+      <mat-spinner diameter="32" aria-hidden="true" />
+    }
+    @case ('cancelled') {
+      <span class="eyebrow success">Appointment cancelled</span>
+      <h1>Your appointment has been cancelled</h1>
+      <p class="sub">The slot has been released. You don't need to do anything else.</p>
+    }
+    @case ('error') {
+      <span class="eyebrow error">Couldn't load this link</span>
+      <h1>{{ errorMessage() }}</h1>
+    }
+  }
+</section>

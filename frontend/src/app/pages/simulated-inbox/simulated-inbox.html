@@ -1,0 +1,7 @@
+<section class="inbox-page">
+  @if (stored(); as s) {
+    <app-simulated-email-preview [email]="s.email" [actionLabel]="s.actionLabel" />
+  } @else {
+    <p class="inbox-empty">No simulated email found in this tab.</p>
+  }
+</section>

@@ -1,0 +1,32 @@
+<section class="confirm-page">
+  <!-- Always present, so screen readers announce its text as it changes. -->
+  <p class="visually-hidden" role="status">{{ state() === 'confirming' ? 'Confirming your appointment' : '' }}</p>
+  @switch (state()) {
+    @case ('confirming') {
+      <mat-spinner diameter="32" aria-hidden="true" />
+    }
+    @case ('confirmed') {
+      @if (appointment(); as appt) {
+        @if (credential(); as cred) {
+          <app-manage-appointment [appointment]="appt" [credential]="cred" (cancelled)="onAppointmentCancelled()" (changed)="onAppointmentChanged($event)" />
+        }
+      }
+      <!-- The receipt's cancellation link is useless once the appointment is cancelled or moved away from CONFIRMED. -->
+      @if (appointment()?.status === 'CONFIRMED') {
+        <div class="receipt">
+          <button mat-stroked-button type="button" (click)="viewReceipt()">View receipt email</button>
+          @if (receiptPopupBlocked()) {
+            <p class="popup-blocked">Your browser blocked the new tab — click the button again to open it.</p>
+          }
+        </div>
+      }
+    }
+    @case ('error') {
+      <span class="eyebrow error">Couldn't confirm</span>
+      <h1>{{ errorMessage() }}</h1>
+      @if (linkExpiredOrUsed()) {
+        <a mat-flat-button routerLink="/manage">Look up your booking</a>
+      }
+    }
+  }
+</section>

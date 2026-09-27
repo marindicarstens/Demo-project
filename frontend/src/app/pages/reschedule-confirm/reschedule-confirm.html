@@ -1,0 +1,33 @@
+<section class="reschedule-confirm-page">
+  <!-- Always present, so screen readers announce its text as it changes. -->
+  <p class="visually-hidden" role="status">{{ state() === 'confirming' ? 'Confirming your new time' : '' }}</p>
+  @switch (state()) {
+    @case ('idle') {
+      <span class="eyebrow">Confirm your reschedule</span>
+      <h1>Ready to confirm the new time?</h1>
+      <p class="sub">Clicking below moves your appointment - nothing happens until you do.</p>
+      <button mat-flat-button type="button" [disabled]="state() !== 'idle'" (click)="confirmReschedule()">Confirm my new time</button>
+    }
+    @case ('confirming') {
+      <mat-spinner diameter="32" aria-hidden="true" />
+    }
+    @case ('confirmed') {
+      @if (result(); as details) {
+        <span class="eyebrow success">Appointment rescheduled</span>
+        <h1>Your appointment has been moved</h1>
+        <div class="details">
+          <strong>{{ details.branch.name }}</strong>
+          <span>{{ details.serviceType.name }} at {{ details.startTime | time }} on {{ details.date | date: 'EEEE, d MMMM' }}</span>
+          <span class="reference">Reference {{ details.referenceCode }}</span>
+        </div>
+      }
+    }
+    @case ('error') {
+      <span class="eyebrow error">Couldn't confirm</span>
+      <h1>{{ errorMessage() }}</h1>
+      @if (requestAgain()) {
+        <a mat-flat-button routerLink="/manage">Look up your booking</a>
+      }
+    }
+  }
+</section>

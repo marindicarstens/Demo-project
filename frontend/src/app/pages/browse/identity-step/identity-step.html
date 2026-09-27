@@ -1,0 +1,28 @@
+<div class="step">
+  <h2 class="step-title">4. Confirm you're an existing client</h2>
+  <form [formGroup]="form" class="contact-form" (ngSubmit)="submit()">
+    <mat-form-field appearance="outline">
+      <mat-label>Email</mat-label>
+      <input matInput type="email" formControlName="email" />
+      <mat-error>Enter a valid email address</mat-error>
+    </mat-form-field>
+    <mat-form-field appearance="outline">
+      <mat-label>ID number</mat-label>
+      <input matInput formControlName="idNumber" />
+      <mat-error>Enter your 13-digit ID number</mat-error>
+    </mat-form-field>
+    <mat-form-field appearance="outline">
+      <mat-label>Account number</mat-label>
+      <input matInput formControlName="accountNumber" />
+      <mat-error>Enter your account number</mat-error>
+    </mat-form-field>
+
+    <button mat-flat-button class="book-button" type="submit" [disabled]="booking()">
+      {{ booking() ? 'Checking…' : 'Book this appointment' }}
+    </button>
+  </form>
+  @if (mismatchMessage(); as message) {
+    <p class="booking-error" role="alert">{{ message }}</p>
+    <button mat-stroked-button type="button" (click)="continueAsNewAccount.emit()">Continue as a New Account instead</button>
+  }
+</div>

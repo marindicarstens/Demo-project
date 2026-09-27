@@ -1,0 +1,24 @@
+# OS
+.DS_Store
+
+# IDE
+.idea/
+.vscode/
+*.iml
+
+# Environment / secrets
+.env
+*.local
+
+# Backend (Maven/Java)
+target/
+*.class
+
+# Local-only portable JDK (not part of the project)
+.tools/
+
+# Frontend (Angular/Node) — placeholders for Phase 1
+node_modules/
+dist/
+.angular/
+.omc/

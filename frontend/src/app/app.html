@@ -1,0 +1,38 @@
+@if (!bareLayout()) {
+  <nav class="nav">
+    <div class="nav-inner">
+      <a class="wordmark" routerLink="/">
+        <svg width="30" height="30" viewBox="0 0 30 30" fill="none" aria-hidden="true">
+          <rect x="1" y="4" width="20" height="20" rx="7" fill="var(--mat-sys-tertiary)" />
+          <rect x="9" y="12" width="20" height="20" rx="7" fill="var(--mat-sys-primary)" />
+          <path
+            d="M15 21.2L18 24.2L24 17.5"
+            stroke="white"
+            stroke-width="2.4"
+            stroke-linecap="round"
+            stroke-linejoin="round"
+          />
+        </svg>
+        Demo Booking
+      </a>
+      <div class="nav-links">
+        <a class="link-btn" routerLink="/">Find a branch</a>
+        <a class="pill-outline" routerLink="/manage">Look up my booking</a>
+      </div>
+    </div>
+  </nav>
+}
+
+<main class="page" [class.bare]="bareLayout()">
+  <router-outlet />
+</main>
+
+@if (!bareLayout()) {
+  <footer>
+    <p class="footer-note">
+      Demo Booking is a portfolio/demo project simulating a bank branch appointment system. It is
+      not affiliated with, endorsed by, or a real product of any bank. No real emails or SMS
+      messages are sent.
+    </p>
+  </footer>
+}

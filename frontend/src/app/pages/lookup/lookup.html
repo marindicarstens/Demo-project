@@ -1,0 +1,32 @@
+<section class="lookup-page">
+  <h1>Look up my booking</h1>
+  <p class="sub">Enter your reference code and the email you booked with.</p>
+
+  @if (appointment(); as found) {
+    @if (credential(); as cred) {
+      <app-manage-appointment [appointment]="found" [credential]="cred" (cancelled)="onCancelled()" (changed)="appointment.set($event)" />
+    }
+    <button mat-button type="button" class="search-again" (click)="searchAgain()">Look up a different booking</button>
+  } @else {
+    <form [formGroup]="lookupForm" class="lookup-form" (ngSubmit)="lookup()">
+      <mat-form-field appearance="outline">
+        <mat-label>Reference code</mat-label>
+        <input matInput formControlName="reference" placeholder="e.g. BR-7F3K9Q" />
+        <mat-error>Enter your reference code</mat-error>
+      </mat-form-field>
+      <mat-form-field appearance="outline">
+        <mat-label>Email</mat-label>
+        <input matInput type="email" formControlName="email" />
+        <mat-error>Enter a valid email address</mat-error>
+      </mat-form-field>
+
+      @if (error(); as message) {
+        <p class="lookup-error" role="alert">{{ message }}</p>
+      }
+
+      <button mat-flat-button type="submit" [disabled]="loading()">
+        {{ loading() ? 'Looking up…' : 'Find my booking' }}
+      </button>
+    </form>
+  }
+</section>

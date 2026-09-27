@@ -1,0 +1,41 @@
+// Shared by the browse page and its step components.
+
+.step {
+  display: block;
+  padding-block: 20px;
+  border-top: 1px solid var(--mat-sys-outline-variant);
+}
+
+.step-title {
+  font-family: var(--db-font-display);
+  font-size: 16px;
+  font-weight: 600;
+  margin: 0 0 14px;
+}
+
+.branch-field {
+  width: 100%;
+  max-width: 420px;
+}
+
+.contact-form {
+  display: flex;
+  flex-direction: column;
+  gap: 4px;
+  max-width: 420px;
+
+  button {
+    align-self: flex-start;
+    margin-top: 4px;
+  }
+}
+
+.booking-error {
+  color: var(--mat-sys-error);
+  font-size: 14px;
+  margin: 16px 0 0;
+}
+
+.book-button {
+  margin-top: 16px;
+}

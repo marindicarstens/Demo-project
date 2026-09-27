@@ -1,0 +1,15 @@
+# ZAP baseline rule overrides, read by the nightly job in .github/workflows/ci.yml.
+# Format: rule id <TAB> action <TAB> (note). Every rule not listed keeps its default (WARN),
+# so any new finding still fails the job. Each IGNORE below is an accepted, reviewed finding.
+#
+# 10049: the fingerprinted JS/CSS bundles are cached for a year on purpose (nginx.conf);
+# index.html is served no-cache, and no response carries personal data.
+10049	IGNORE	(Storable and Cacheable Content - intended for fingerprinted static assets)
+# 10055: one exact sha256 hash for the onload handler Angular emits to defer its stylesheet;
+# the reasoning is in frontend/security-headers.conf. No other inline script is allowed.
+10055	IGNORE	(CSP script-src unsafe-hashes - a single pinned hash, documented in security-headers.conf)
+# 10109: informational only; it tells ZAP the target is a single-page app.
+10109	IGNORE	(Modern Web Application - informational)
+# 10110: matches function names inside the Angular framework bundle. The application code
+# uses no eval, innerHTML or bypassSecurityTrust* calls.
+10110	IGNORE	(Dangerous JS Functions - framework bundle only)

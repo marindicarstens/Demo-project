@@ -1,0 +1,86 @@
+spring:
+  application:
+    name: demo-booking-backend
+  threads:
+    virtual:
+      enabled: true # Java 25 / Spring Boot virtual threads
+  # Localhost defaults for running `./mvnw spring-boot:run` against `docker compose up postgres
+  # redis` (see README.md § Project structure) - the host-mapped ports, not the compose-network
+  # hostnames in application-docker.yml. Overridden by that profile when running in Compose.
+  datasource:
+    url: jdbc:postgresql://localhost:${POSTGRES_PORT:5432}/${POSTGRES_DB:demo_booking}
+    username: ${POSTGRES_USER:demo_booking}
+    password: ${POSTGRES_PASSWORD:}
+  data:
+    redis:
+      host: localhost
+      port: ${REDIS_PORT:6379}
+  jpa:
+    hibernate:
+      ddl-auto: validate # schema is owned by Flyway migrations, never Hibernate auto-DDL
+    open-in-view: false
+  flyway:
+    enabled: true
+  cache:
+    type: redis # TTL and JSON serialization configured in CacheConfig, not here - see its Javadoc
+
+server:
+  port: 8080
+  # Behind Nginx (docker-compose.yml), the client address comes from X-Forwarded-For - but only
+  # when the request arrives from the proxy's own static IP. From anywhere else the header is
+  # ignored, so a caller can't pick its own rate-limit bucket by sending one.
+  forward-headers-strategy: native
+  tomcat:
+    remoteip:
+      internal-proxies: ${APP_TRUSTED_PROXY:172\.28\.0\.10}
+      remote-ip-header: x-forwarded-for
+
+management:
+  endpoints:
+    web:
+      exposure:
+        include: health,info
+  endpoint:
+    health:
+      probes:
+        enabled: true
+      show-details: when-authorized
+
+springdoc:
+  swagger-ui:
+    path: /swagger-ui.html
+  api-docs:
+    path: /v3/api-docs
+
+# Business-rule defaults, bound and validated by config.AppProperties.
+app:
+  # Local-dev-only placeholder secret - application-docker.yml overrides this with the real
+  # APP_JWT_SIGNING_SECRET from .env. Never a real secret in this file; it's committed.
+  jwt-signing-secret: "local-dev-only-secret-not-used-in-docker-compose-or-production-CHANGE-ME"
+  frontend-origin: http://localhost:4200
+  booking:
+    confirmation-token-ttl: 1 # minutes
+    reschedule-min-notice: 2 # hours
+    access-token-ttl: 30 # minutes
+    # The stored replay carries the raw confirmation link, so it may not outlive that token.
+    idempotency-key-ttl: ${app.booking.confirmation-token-ttl} # minutes
+  # Per client IP, per window. Raise the two general limits for load tests from one host.
+  rate-limit:
+    booking-create:
+      max-attempts: ${APP_RATE_LIMIT_BOOKING_CREATE_MAX_ATTEMPTS:200}
+      window: ${APP_RATE_LIMIT_WINDOW:PT15M}
+    lookup:
+      max-attempts: ${APP_RATE_LIMIT_LOOKUP_MAX_ATTEMPTS:200}
+      window: ${APP_RATE_LIMIT_WINDOW:PT15M}
+    directory-validation:
+      max-attempts: ${APP_RATE_LIMIT_DIRECTORY_VALIDATION_MAX_ATTEMPTS:5}
+      window: ${APP_RATE_LIMIT_WINDOW:PT15M}
+  # Far shorter than the confirmation TTL, so an expired hold is released promptly.
+  sweep:
+    interval: PT15S
+  slots:
+    generation-cron: "0 0 1 * * *"
+    rolling-window-days: 14
+    saturday-closing-time: "13:00"
+  cache:
+    ttl: PT10M # branch/service-type data changes rarely

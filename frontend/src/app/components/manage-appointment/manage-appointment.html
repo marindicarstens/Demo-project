@@ -1,0 +1,92 @@
+<div class="manage-appointment">
+  <div class="summary">
+    <!-- The status role takes no name from its content, so it is named by the prefix plus its own text. -->
+    <span class="visually-hidden" [id]="statusLabelId">Status:</span>
+    <span class="status-badge" [class]="appointment().status.toLowerCase()" role="status" [id]="statusValueId" [attr.aria-labelledby]="statusLabelId + ' ' + statusValueId">{{ appointment().status | statusLabel }}</span>
+    <strong>{{ appointment().branch.name }}</strong>
+    <span>
+      {{ appointment().serviceType.name }} at {{ appointment().startTime | time }} on
+      {{ appointment().date | date: 'EEEE, d MMMM' }}
+    </span>
+    <span class="reference">Reference {{ appointment().referenceCode }}</span>
+  </div>
+
+  @if (appointment().status === 'CONFIRMED') {
+    @if (error(); as message) {
+      <p class="manage-error" role="alert">{{ message }}</p>
+      @if (sessionExpired()) {
+        <a mat-stroked-button routerLink="/manage">Look up your appointment</a>
+      }
+    }
+
+    @if (livePendingReschedule() && mode() !== 'requested' && !sessionExpired()) {
+      <div class="pending-reschedule">
+        <p>A reschedule is waiting for confirmation.</p>
+        @if (emailPopupBlocked()) {
+          <p class="popup-blocked">Your browser blocked the new tab — click the button again to open it.</p>
+        }
+        <button mat-stroked-button type="button" (click)="reopenRescheduleEmail()">Reopen the email</button>
+      </div>
+    }
+
+    @if (!sessionExpired()) {
+      @switch (mode()) {
+        @case ('idle') {
+          <div class="actions">
+            <button mat-stroked-button type="button" (click)="startReschedule()">Reschedule</button>
+            <button mat-stroked-button type="button" (click)="askToCancel()">Cancel appointment</button>
+          </div>
+        }
+        @case ('confirmingCancel') {
+          <section class="confirm-cancel" aria-labelledby="confirm-cancel-title">
+            <p id="confirm-cancel-title" class="confirm-cancel-title">Are you sure? This can't be undone.</p>
+            <div class="actions">
+              <button mat-flat-button type="button" [disabled]="working()" (click)="cancelAppointment()">
+                {{ working() ? 'Cancelling…' : 'Yes, cancel' }}
+              </button>
+              <button mat-button type="button" [disabled]="working()" (click)="backToSummary()">Keep appointment</button>
+            </div>
+          </section>
+        }
+        @case ('rescheduling') {
+          <div class="reschedule-picker">
+            <app-slot-picker
+              [branchId]="appointment().branch.id"
+              [serviceTypeId]="appointment().serviceType.id"
+              [date]="selectedDate()"
+              [min]="minDate"
+              [max]="maxDate"
+              [selectedSlotId]="selectedSlot()?.id ?? null"
+              dateLabel="New date"
+              (dateChanged)="onDateChanged($event)"
+              (slotSelected)="selectSlot($event)"
+            />
+
+            <div class="actions">
+              <button mat-flat-button type="button" [disabled]="!selectedSlot() || working()" (click)="requestReschedule()">
+                {{ working() ? 'Sending…' : 'Confirm new time' }}
+              </button>
+              <button mat-button type="button" [disabled]="working()" (click)="backToSummary()">Back</button>
+            </div>
+          </div>
+        }
+        @case ('requested') {
+          <section class="reschedule-requested">
+            <h2 class="requested-title">Almost there — confirm your reschedule</h2>
+            <p class="requested-sub">
+              We've opened a simulated confirmation email in a new tab. Click the link there to move your appointment - it
+              stays exactly where it is until you do.
+            </p>
+            @if (emailPopupBlocked()) {
+              <p class="popup-blocked">Your browser blocked the new tab — use the button below to open it instead.</p>
+            }
+            <div class="actions">
+              <button mat-stroked-button type="button" (click)="reopenRescheduleEmail()">Reopen the email</button>
+              <button mat-button type="button" (click)="backToSummary()">Back</button>
+            </div>
+          </section>
+        }
+      }
+    }
+  }
+</div>

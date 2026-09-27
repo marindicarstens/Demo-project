@@ -1,0 +1,21 @@
+<div class="step">
+  <h2 class="step-title">1. Your details</h2>
+  <form [formGroup]="form" class="contact-form" (ngSubmit)="submit()">
+    <mat-form-field appearance="outline">
+      <mat-label>Full name</mat-label>
+      <input matInput formControlName="fullName" />
+      <mat-error>Enter your full name</mat-error>
+    </mat-form-field>
+    <mat-form-field appearance="outline">
+      <mat-label>Email</mat-label>
+      <input matInput type="email" formControlName="email" />
+      <mat-error>Enter a valid email address</mat-error>
+    </mat-form-field>
+    <mat-form-field appearance="outline">
+      <mat-label>Phone</mat-label>
+      <input matInput formControlName="phone" />
+      <mat-error>Enter a valid SA number, e.g. 082 123 4567 or +27 82 123 4567</mat-error>
+    </mat-form-field>
+    <button mat-flat-button type="submit">Continue</button>
+  </form>
+</div>

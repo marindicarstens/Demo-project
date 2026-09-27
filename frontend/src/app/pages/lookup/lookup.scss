@@ -1,0 +1,33 @@
+.lookup-page {
+  padding-block: 40px;
+  max-width: 480px;
+}
+
+h1 {
+  font-family: var(--db-font-display);
+  color: var(--mat-sys-tertiary);
+  font-size: clamp(24px, 4vw, 34px);
+  margin: 0 0 10px;
+}
+
+.sub {
+  color: var(--mat-sys-on-surface-variant);
+  font-size: 14.5px;
+  margin: 0 0 24px;
+}
+
+.lookup-form {
+  display: flex;
+  flex-direction: column;
+  gap: 4px;
+}
+
+.lookup-error {
+  color: var(--mat-sys-error);
+  font-size: 14px;
+  margin: 4px 0 12px;
+}
+
+.search-again {
+  margin-top: 16px;
+}

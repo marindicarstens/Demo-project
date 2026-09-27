@@ -1,0 +1,33 @@
+@use '../../../styles/shared';
+
+.confirm-page {
+  padding-block: 48px;
+  max-width: 480px;
+}
+
+.eyebrow {
+  @include shared.eyebrow;
+}
+
+h1 {
+  font-family: var(--db-font-display);
+  color: var(--mat-sys-tertiary);
+  font-size: clamp(22px, 4vw, 30px);
+  margin: 0 0 12px;
+}
+
+.sub {
+  color: var(--mat-sys-on-surface-variant);
+  font-size: 14.5px;
+  margin: 0 0 24px;
+}
+
+.receipt {
+  margin-top: 16px;
+}
+
+.popup-blocked {
+  color: var(--mat-sys-on-surface-variant);
+  font-size: 13.5px;
+  margin: 8px 0 0;
+}

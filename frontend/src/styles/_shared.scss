@@ -1,0 +1,64 @@
+// Styles repeated across components. Each component `@use`s this file and includes the mixin it
+// needs, since component styles are encapsulated.
+
+@mixin eyebrow {
+  display: inline-flex;
+  font-family: var(--db-font-body);
+  font-weight: 700;
+  font-size: 12.5px;
+  letter-spacing: 0.06em;
+  text-transform: uppercase;
+  color: var(--mat-sys-primary);
+  background: var(--mat-sys-primary-container);
+  padding: 6px 12px;
+  border-radius: var(--db-radius-pill);
+  margin-bottom: 18px;
+
+  &.success {
+    color: var(--mat-sys-tertiary);
+    background: var(--mat-sys-tertiary-container, var(--mat-sys-primary-container));
+  }
+
+  &.error {
+    color: var(--mat-sys-error);
+    background: var(--mat-sys-error-container);
+  }
+}
+
+@mixin popup-blocked {
+  color: var(--mat-sys-error);
+  font-size: 14px;
+  margin: 0 0 12px;
+}
+
+@mixin slot-grid {
+  .slot-grid {
+    display: grid;
+    grid-template-columns: repeat(auto-fill, minmax(84px, 1fr));
+    gap: 10px;
+    max-width: 640px;
+    margin-top: 8px;
+  }
+
+  .slot-button {
+    font-family: var(--db-font-body);
+    font-weight: 700;
+    font-size: 14px;
+    padding: 10px 8px;
+    border-radius: var(--db-radius-control, 10px);
+    border: 1.5px solid var(--mat-sys-outline-variant);
+    background: var(--mat-sys-surface);
+    color: var(--mat-sys-on-surface);
+    cursor: pointer;
+
+    &:hover {
+      border-color: var(--mat-sys-primary);
+    }
+
+    &.selected {
+      background: var(--mat-sys-primary);
+      border-color: var(--mat-sys-primary);
+      color: white;
+    }
+  }
+}

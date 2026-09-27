@@ -1,0 +1,13 @@
+# Activated by @IntegrationTest / @IntegrationTestWithoutRedis. Tests call ExpirySweepService
+# directly, so the real scheduler must not run alongside them - see SchedulingConfig.
+app:
+  scheduling:
+    enabled: false
+  # The cached context shares one Redis and one client IP across the whole suite, so these two
+  # limits count every test's calls together. Directory validation keeps its real limit of 5,
+  # which its own tests exercise.
+  rate-limit:
+    booking-create:
+      max-attempts: 100000
+    lookup:
+      max-attempts: 100000

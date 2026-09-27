@@ -1,0 +1,29 @@
+@use '../../../styles/shared';
+
+:host {
+  display: block;
+}
+
+.date-field {
+  display: block;
+  width: 100%;
+  max-width: 420px;
+}
+
+.slot-spinner {
+  margin-block: 12px;
+}
+
+.no-slots {
+  color: var(--mat-sys-on-surface-variant);
+  font-size: 14px;
+  margin-top: 8px;
+}
+
+.slot-error {
+  color: var(--mat-sys-error);
+  font-size: 14px;
+  margin-top: 8px;
+}
+
+@include shared.slot-grid;

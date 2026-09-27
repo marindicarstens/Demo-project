@@ -1,0 +1,99 @@
+@use '../../../styles/shared';
+
+.manage-appointment {
+  padding: 18px 20px;
+  border-radius: var(--db-radius-card);
+  background: var(--mat-sys-surface-container-low);
+  border: 1px solid var(--mat-sys-outline-variant);
+}
+
+.summary {
+  display: flex;
+  flex-direction: column;
+  gap: 4px;
+  font-family: var(--db-font-body);
+  font-size: 14.5px;
+  color: var(--mat-sys-on-surface);
+
+  strong {
+    font-size: 16px;
+  }
+
+  .reference {
+    color: var(--mat-sys-on-surface-variant);
+    font-size: 13px;
+  }
+}
+
+.status-badge {
+  align-self: flex-start;
+  font-weight: 700;
+  font-size: 11.5px;
+  letter-spacing: 0.04em;
+  text-transform: uppercase;
+  padding: 4px 10px;
+  border-radius: var(--db-radius-pill);
+  background: var(--mat-sys-tertiary-container, var(--mat-sys-primary-container));
+  color: var(--mat-sys-tertiary);
+
+  &.cancelled {
+    background: var(--mat-sys-error-container);
+    color: var(--mat-sys-error);
+  }
+}
+
+.manage-error {
+  color: var(--mat-sys-error);
+  font-size: 14px;
+  margin: 14px 0 0;
+}
+
+.actions {
+  display: flex;
+  gap: 10px;
+  margin-top: 16px;
+  flex-wrap: wrap;
+}
+
+.reschedule-picker {
+  margin-top: 16px;
+}
+
+.reschedule-requested {
+  margin-top: 16px;
+}
+
+.requested-title {
+  font-family: var(--db-font-display);
+  color: var(--mat-sys-tertiary);
+  font-size: clamp(18px, 3vw, 22px);
+  margin: 0 0 8px;
+}
+
+.requested-sub {
+  color: var(--mat-sys-on-surface-variant);
+  font-size: 14.5px;
+  margin: 0 0 16px;
+}
+
+.popup-blocked {
+  @include shared.popup-blocked;
+}
+
+.pending-reschedule {
+  margin-top: 14px;
+  font-size: 14px;
+
+  p {
+    margin: 0 0 8px;
+  }
+}
+
+.confirm-cancel {
+  margin-top: 16px;
+}
+
+.confirm-cancel-title {
+  font-weight: 700;
+  margin: 0;
+}

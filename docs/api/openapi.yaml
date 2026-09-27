@@ -1,0 +1,871 @@
+openapi: 3.0.3
+info:
+  title: Demo Booking API
+  description: >
+    Branch appointment scheduling API for Demo Booking. This file is the API contract, kept in
+    sync with the code; the running backend also serves a generated spec at /v3/api-docs and
+    Swagger UI at /swagger-ui.html. Every error response is application/problem+json
+    (RFC 7807). Every "confirmation"/"receipt"/"expiry" email described here is simulated: no
+    real email or SMS provider is called.
+  version: 1.0.0
+
+servers:
+  - url: http://localhost:4200/api/v1
+    description: Local Docker Compose, through the Nginx proxy (the path the browser uses)
+  - url: http://127.0.0.1:8080/api/v1
+    description: Local Docker Compose, the backend directly (published on loopback only)
+
+tags:
+  - name: Branches
+    description: Branch directory and per-day slot availability.
+  - name: Service Types
+    description: Bookable services, filtered by entry flow.
+  - name: Appointments
+    description: Booking holds, lookup, reschedule and website cancellation.
+  - name: Confirmations
+    description: Magic-link confirmation of a booking hold.
+  - name: Cancellations
+    description: Cancellation via the emailed receipt link.
+
+paths:
+  /branches:
+    get:
+      operationId: listBranches
+      security: []
+      tags: [Branches]
+      summary: List all active branches
+      description: >
+        Fetched once by the frontend and cached client-side for the typeahead branch search
+        Redis-cached server-side.
+      responses:
+        "200":
+          description: List of active branches
+          content:
+            application/json:
+              schema:
+                type: array
+                items:
+                  $ref: "#/components/schemas/Branch"
+
+  /branches/{branchId}/availability:
+    get:
+      operationId: getAvailability
+      security: []
+      tags: [Branches]
+      summary: Available time slots for a branch on a given date
+      parameters:
+        - name: branchId
+          in: path
+          required: true
+          schema:
+            type: string
+            format: uuid
+        - name: date
+          in: query
+          required: true
+          schema:
+            type: string
+            format: date
+        - name: serviceTypeId
+          in: query
+          required: true
+          schema:
+            type: string
+            format: uuid
+      responses:
+        "200":
+          description: Available slots, already filtered to those with remaining capacity
+          content:
+            application/json:
+              schema:
+                type: array
+                items:
+                  $ref: "#/components/schemas/AvailabilitySlot"
+        "404":
+          description: Branch not found, or inactive
+          content:
+            application/problem+json:
+              schema:
+                $ref: "#/components/schemas/ProblemDetail"
+
+  /service-types:
+    get:
+      operationId: listServiceTypes
+      security: []
+      tags: [Service Types]
+      summary: List bookable service types for a given entry flow
+      parameters:
+        - name: clientType
+          in: query
+          required: true
+          schema:
+            $ref: "#/components/schemas/ClientType"
+      responses:
+        "200":
+          description: Service types applicable to the given client type (includes BOTH-tagged types)
+          content:
+            application/json:
+              schema:
+                type: array
+                items:
+                  $ref: "#/components/schemas/ServiceType"
+        "400":
+          description: clientType is missing or not a known value
+          content:
+            application/problem+json:
+              schema:
+                $ref: "#/components/schemas/ProblemDetail"
+
+  /appointments:
+    post:
+      operationId: createAppointment
+      security: []
+      tags: [Appointments]
+      summary: Create a booking hold
+      description: >
+        Creates an appointment in PENDING_CONFIRMATION status and returns the simulated
+        confirmation-email payload. For clientType=EXISTING_CLIENT, first validates
+        email + idNumber + accountNumber against the seeded EXISTING_CUSTOMER directory.
+        Nothing is written if that validation fails.
+      parameters:
+        - name: Idempotency-Key
+          in: header
+          required: false
+          description: >
+            Client-generated key (e.g. a UUID), resent unchanged on retry. Replaying the same key
+            with the same body returns the original 201 response with no new hold created; reusing
+            the key with a different request body returns 422, and a retry while the first request
+            is still running returns 409. The key is stored in Redis and honoured for
+            app.booking.idempotency-key-ttl, which defaults to the confirmation hold window and may
+            not exceed it; a retry after that creates a new hold. If Redis is unreachable, a
+            request with this header gets 503 rather than risking a second hold.
+          schema:
+            type: string
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              $ref: "#/components/schemas/BookingRequest"
+      responses:
+        "201":
+          description: Hold created; simulated confirmation email returned for the UI to render
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/AppointmentHold"
+        "422":
+          description: >
+            Either existing-client directory validation failed (body: DirectoryValidationError —
+            intentionally identical regardless of which field(s) mismatched), or the
+            Idempotency-Key header was reused with a different request
+            body than its first use, or the slot doesn't belong to the given branchId and
+            serviceTypeId (body: plain ProblemDetail).
+          content:
+            application/problem+json:
+              schema:
+                $ref: "#/components/schemas/DirectoryValidationError"
+        "409":
+          description: >
+            Either the requested slot has no remaining capacity (lost a race to another customer;
+            code is SLOT_FULL), or a request with the same Idempotency-Key is still being processed
+            (retry shortly; no code).
+          content:
+            application/problem+json:
+              schema:
+                $ref: "#/components/schemas/ConflictProblemDetail"
+        "400":
+          $ref: "#/components/responses/ValidationFailed"
+        "429":
+          description: >
+            Too many attempts from this client IP in the current window: either the booking-create
+            limit, or for clientType=EXISTING_CLIENT the stricter directory-validation limit.
+          content:
+            application/problem+json:
+              schema:
+                $ref: "#/components/schemas/ProblemDetail"
+        "503":
+          description: >
+            Redis is unreachable and this request can't run safely without it: a request with an
+            Idempotency-Key, or an existing-client directory check. New-client bookings without a
+            key still succeed.
+          headers:
+            Retry-After:
+              $ref: "#/components/headers/RetryAfter"
+          content:
+            application/problem+json:
+              schema:
+                $ref: "#/components/schemas/ProblemDetail"
+
+  /confirmations/{token}:
+    post:
+      operationId: confirmAppointment
+      security: []
+      tags: [Confirmations]
+      summary: Confirm a booking hold via its magic-link token
+      description: >
+        Fired automatically when the /confirm/:token page loads, with no separate in-app click -
+        a deliberate, accepted trade-off for this demo (unlike the cancellation and
+        reschedule-confirm pages, which both require an explicit click before acting). A mail
+        scanner or link-prefetcher that auto-GETs the email link would trigger this the same way
+        a real click does, burning the single-use token before the customer opens the email.
+      parameters:
+        - name: token
+          in: path
+          required: true
+          description: Raw confirmation token from the simulated email link
+          schema:
+            type: string
+      responses:
+        "200":
+          description: Appointment confirmed
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/ConfirmationResult"
+        "410":
+          description: Token expired or already used
+          content:
+            application/problem+json:
+              schema:
+                $ref: "#/components/schemas/ProblemDetail"
+        "404":
+          description: Unknown token
+          content:
+            application/problem+json:
+              schema:
+                $ref: "#/components/schemas/ProblemDetail"
+        "409":
+          description: >
+            The hold changed at the same moment, for example the expiry sweep releasing it - refresh
+            and try again.
+          content:
+            application/problem+json:
+              schema:
+                $ref: "#/components/schemas/ProblemDetail"
+
+  /appointments/lookup:
+    get:
+      operationId: lookupAppointment
+      security: []
+      tags: [Appointments]
+      summary: Retrieve a confirmed appointment by reference code and email
+      description: The fallback path once the scoped access token issued at confirmation has expired.
+      parameters:
+        - name: reference
+          in: query
+          required: true
+          schema:
+            type: string
+        - name: email
+          in: query
+          required: true
+          schema:
+            type: string
+            format: email
+      responses:
+        "200":
+          description: Matching appointment
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/Appointment"
+        "400":
+          description: The reference or email query parameter is missing
+          content:
+            application/problem+json:
+              schema:
+                $ref: "#/components/schemas/ProblemDetail"
+        "404":
+          description: No matching appointment for that reference/email pair
+          content:
+            application/problem+json:
+              schema:
+                $ref: "#/components/schemas/ProblemDetail"
+        "429":
+          description: Too many lookups from this client IP in the current window
+          content:
+            application/problem+json:
+              schema:
+                $ref: "#/components/schemas/ProblemDetail"
+
+  /appointments/{appointmentId}/reschedule-request:
+    post:
+      operationId: requestReschedule
+      tags: [Appointments]
+      summary: Request a reschedule to a new slot
+      description: >
+        Not available via the email link (website only, same auth as reschedule always used).
+        Reserves the new slot's capacity and returns a simulated "please confirm this reschedule"
+        email - mirrors POST /appointments (booking hold creation) exactly. The appointment's
+        *current* slot is untouched by this call; the actual
+        move only happens once the emailed link is confirmed via
+        POST /reschedule-confirmations/{token}. The new slot is re-validated exactly like a fresh
+        booking - capacity, minimum-notice window, and client-type applicability.
+      security:
+        - referenceEmailAuth: []
+        - appointmentAccessToken: []
+      parameters:
+        - name: appointmentId
+          in: path
+          required: true
+          schema:
+            type: string
+            format: uuid
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              $ref: "#/components/schemas/RescheduleRequest"
+      responses:
+        "200":
+          description: Reschedule requested - the appointment itself has not moved yet
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/RescheduleRequestResult"
+        "400":
+          $ref: "#/components/responses/ValidationFailed"
+        "404":
+          description: >
+            Appointment not found, the credential doesn't match it, or the new slot doesn't exist
+          content:
+            application/problem+json:
+              schema:
+                $ref: "#/components/schemas/ProblemDetail"
+        "409":
+          description: >
+            The requested new slot has no remaining capacity (lost a race to another customer;
+            code is SLOT_FULL), or a reschedule is already pending confirmation for this
+            appointment (no code).
+          content:
+            application/problem+json:
+              schema:
+                $ref: "#/components/schemas/ConflictProblemDetail"
+        "422":
+          description: >
+            Requested change violates the minimum-notice window, or the new slot's service type
+            isn't applicable to this appointment's original client-type flow.
+          content:
+            application/problem+json:
+              schema:
+                $ref: "#/components/schemas/ProblemDetail"
+
+  /reschedule-confirmations/{token}:
+    post:
+      operationId: confirmReschedule
+      security: []
+      tags: [Appointments]
+      summary: Confirm a pending reschedule via its magic-link token
+      description: >
+        Called only after the customer explicitly clicks "Confirm my new time" on the
+        /reschedule-confirm/:token page - never on page load alone (unlike
+        POST /confirmations/{token}, which fires automatically on page load - see its own
+        description). Performs the actual move: releases
+        the old slot's capacity, keeps the already-reserved new slot, updates the appointment.
+        Re-validates the minimum-notice window (both slots) and client-type applicability again,
+        since time has passed since the request - capacity for the new slot is already secured
+        and isn't re-checked.
+      parameters:
+        - name: token
+          in: path
+          required: true
+          description: Raw reschedule-confirmation token from the simulated email link
+          schema:
+            type: string
+      responses:
+        "200":
+          description: Appointment rescheduled
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/Appointment"
+        "410":
+          description: Token expired or already used - the appointment is unchanged
+          content:
+            application/problem+json:
+              schema:
+                $ref: "#/components/schemas/ProblemDetail"
+        "404":
+          description: Unknown token
+          content:
+            application/problem+json:
+              schema:
+                $ref: "#/components/schemas/ProblemDetail"
+        "422":
+          description: >
+            Re-validation at confirm time failed (minimum-notice window, or client-type
+            applicability) - the appointment is unchanged; the held new slot is released once
+            this token's TTL naturally expires.
+          content:
+            application/problem+json:
+              schema:
+                $ref: "#/components/schemas/ProblemDetail"
+        "409":
+          description: >
+            The appointment or the reschedule request changed at the same moment (for example a
+            concurrent cancellation, or the expiry sweep) - the appointment is unchanged; refresh and
+            try again.
+          content:
+            application/problem+json:
+              schema:
+                $ref: "#/components/schemas/ProblemDetail"
+
+  /appointments/{appointmentId}:
+    get:
+      operationId: getAppointment
+      tags: [Appointments]
+      summary: Retrieve an appointment by id
+      description: >
+        Read-only view for either credential, so a holder of the scoped access token can re-fetch
+        without the reference code and email. A credential that doesn't match and an appointment
+        that doesn't exist both return the same 404.
+      security:
+        - referenceEmailAuth: []
+        - appointmentAccessToken: []
+      parameters:
+        - name: appointmentId
+          in: path
+          required: true
+          schema:
+            type: string
+            format: uuid
+      responses:
+        "200":
+          description: The appointment
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/Appointment"
+        "400":
+          description: appointmentId is not a valid UUID
+          content:
+            application/problem+json:
+              schema:
+                $ref: "#/components/schemas/ProblemDetail"
+        "404":
+          description: Appointment not found, or the credential doesn't match it
+          content:
+            application/problem+json:
+              schema:
+                $ref: "#/components/schemas/ProblemDetail"
+    delete:
+      operationId: cancelAppointment
+      tags: [Appointments]
+      summary: Cancel an appointment from the website
+      description: >
+        No minimum-notice restriction, but an appointment that has already started can't be
+        cancelled (422). Shares its service-layer implementation with POST /cancellations/{token}.
+      security:
+        - referenceEmailAuth: []
+        - appointmentAccessToken: []
+      parameters:
+        - name: appointmentId
+          in: path
+          required: true
+          schema:
+            type: string
+            format: uuid
+      responses:
+        "204":
+          description: Cancelled (or already was - cancelling again is a no-op)
+        "400":
+          description: appointmentId is not a valid UUID
+          content:
+            application/problem+json:
+              schema:
+                $ref: "#/components/schemas/ProblemDetail"
+        "404":
+          description: Appointment not found, or the credential doesn't match it
+          content:
+            application/problem+json:
+              schema:
+                $ref: "#/components/schemas/ProblemDetail"
+        "409":
+          description: >
+            The appointment kept changing at the same moment (for example a concurrent reschedule
+            confirmation) through every retry - refresh and try again.
+          content:
+            application/problem+json:
+              schema:
+                $ref: "#/components/schemas/ProblemDetail"
+        "422":
+          description: >
+            The appointment can't be cancelled: it has already started, or it isn't confirmed (an
+            unconfirmed hold or an expired one).
+          content:
+            application/problem+json:
+              schema:
+                $ref: "#/components/schemas/ProblemDetail"
+
+  /cancellations/{token}:
+    get:
+      operationId: previewCancellation
+      security: []
+      tags: [Cancellations]
+      summary: Preview a cancellation (safe, no side effects)
+      description: >
+        The page an emailed cancellation link opens. Deliberately read-only so email
+        security scanners/link-prefetchers visiting the link can't trigger a cancellation.
+      parameters:
+        - name: token
+          in: path
+          required: true
+          schema:
+            type: string
+      responses:
+        "200":
+          description: Appointment summary for display before the customer confirms
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/CancellationPreview"
+        "404":
+          description: Unknown token
+          content:
+            application/problem+json:
+              schema:
+                $ref: "#/components/schemas/ProblemDetail"
+        "410":
+          description: >
+            The link has expired because the appointment has already passed. An appointment that
+            is already cancelled still previews, with alreadyCancelled true.
+          content:
+            application/problem+json:
+              schema:
+                $ref: "#/components/schemas/ProblemDetail"
+    post:
+      operationId: confirmCancellation
+      security: []
+      tags: [Cancellations]
+      summary: Perform the cancellation
+      description: >
+        Called only after an explicit "Yes, cancel my appointment" click on the preview page.
+        Idempotent: calling it again after the first success reports the appointment as
+        already cancelled rather than erroring.
+      parameters:
+        - name: token
+          in: path
+          required: true
+          schema:
+            type: string
+      responses:
+        "200":
+          description: Cancelled (or already was — response is the same either way)
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/CancellationResult"
+        "404":
+          description: Unknown token
+          content:
+            application/problem+json:
+              schema:
+                $ref: "#/components/schemas/ProblemDetail"
+        "409":
+          description: >
+            The appointment changed at the same moment (for example a concurrent reschedule
+            confirmation) - refresh and try again.
+          content:
+            application/problem+json:
+              schema:
+                $ref: "#/components/schemas/ProblemDetail"
+        "410":
+          description: The link has expired because the appointment has already passed
+          content:
+            application/problem+json:
+              schema:
+                $ref: "#/components/schemas/ProblemDetail"
+        "422":
+          description: >
+            The appointment can't be cancelled: it has already started, or it is no longer
+            confirmed.
+          content:
+            application/problem+json:
+              schema:
+                $ref: "#/components/schemas/ProblemDetail"
+
+components:
+  headers:
+    RetryAfter:
+      description: Seconds to wait before retrying.
+      schema:
+        type: integer
+        example: 5
+
+  responses:
+    ValidationFailed:
+      description: >
+        Validation error: a missing or malformed field, or an unreadable body. For a field-level
+        failure, errors maps each offending field to its first message.
+      content:
+        application/problem+json:
+          schema:
+            $ref: "#/components/schemas/ValidationProblemDetail"
+
+  securitySchemes:
+    referenceEmailAuth:
+      type: apiKey
+      in: query
+      name: reference+email
+      description: Not a real API-key scheme — documents that reference code + email together act as the credential.
+    appointmentAccessToken:
+      type: http
+      scheme: bearer
+      bearerFormat: JWT
+      description: Short-lived, appointment-scoped token issued on confirmation (sub=appointmentId).
+
+  schemas:
+    ClientType:
+      type: string
+      enum: [NEW_CLIENT, EXISTING_CLIENT]
+
+    ApplicableClientType:
+      type: string
+      enum: [NEW_CLIENT, EXISTING_CLIENT, BOTH]
+
+    AppointmentStatus:
+      type: string
+      enum: [PENDING_CONFIRMATION, CONFIRMED, EXPIRED, CANCELLED]
+
+    Branch:
+      type: object
+      required: [id, name, address, city, opensAt, closesAt]
+      properties:
+        id: { type: string, format: uuid }
+        name: { type: string, example: "Sandton City" }
+        address: { type: string, example: "83 Rivonia Rd, Sandhurst" }
+        city: { type: string, example: "Johannesburg" }
+        phone: { type: string, example: "+27 11 555 0123" }
+        opensAt: { type: string, example: "08:30" }
+        closesAt: { type: string, example: "16:30" }
+
+    ServiceType:
+      type: object
+      required: [id, name, durationMinutes, applicableClientType]
+      properties:
+        id: { type: string, format: uuid }
+        name: { type: string, example: "Loan consultation" }
+        durationMinutes: { type: integer, example: 30 }
+        applicableClientType:
+          $ref: "#/components/schemas/ApplicableClientType"
+
+    AvailabilitySlot:
+      type: object
+      required: [id, date, startTime, remainingCapacity]
+      properties:
+        id: { type: string, format: uuid }
+        date: { type: string, format: date }
+        startTime: { type: string, example: "10:30" }
+        remainingCapacity: { type: integer, example: 2 }
+
+    NewClientBookingRequest:
+      type: object
+      required: [clientType, branchId, serviceTypeId, slotId, fullName, email, phone]
+      properties:
+        clientType:
+          type: string
+          enum: [NEW_CLIENT]
+        branchId: { type: string, format: uuid }
+        serviceTypeId: { type: string, format: uuid }
+        slotId: { type: string, format: uuid }
+        fullName: { type: string, example: "Lindiwe Dube" }
+        email: { type: string, format: email }
+        phone: { type: string, example: "+27 82 555 0199" }
+
+    ExistingClientBookingRequest:
+      type: object
+      required: [clientType, branchId, serviceTypeId, slotId, email, idNumber, accountNumber]
+      properties:
+        clientType:
+          type: string
+          enum: [EXISTING_CLIENT]
+        branchId: { type: string, format: uuid }
+        serviceTypeId: { type: string, format: uuid }
+        slotId: { type: string, format: uuid }
+        email: { type: string, format: email }
+        idNumber:
+          type: string
+          description: South African ID number (13 digits). Compared as a plain string against the seeded directory; never logged.
+          example: "9203015800082"
+        accountNumber:
+          type: string
+          description: Existing account/reference number. Compared as a plain string against the seeded directory; never logged.
+          example: "4051234567"
+
+    BookingRequest:
+      oneOf:
+        - $ref: "#/components/schemas/NewClientBookingRequest"
+        - $ref: "#/components/schemas/ExistingClientBookingRequest"
+      discriminator:
+        propertyName: clientType
+        mapping:
+          NEW_CLIENT: "#/components/schemas/NewClientBookingRequest"
+          EXISTING_CLIENT: "#/components/schemas/ExistingClientBookingRequest"
+
+    SimulatedEmail:
+      type: object
+      description: A fully-rendered simulated email payload — never actually sent.
+      required: [subject, from, bodyText, sentAt]
+      properties:
+        subject: { type: string, example: "Confirm your branch appointment" }
+        from: { type: string, example: "no-reply@demobooking.simulated" }
+        bodyText: { type: string }
+        actionLink:
+          type: string
+          format: uri
+          description: The confirm or cancellation link embedded in this email, where applicable.
+        sentAt: { type: string, format: date-time }
+
+    AppointmentHold:
+      type: object
+      required: [appointmentId, referenceCode, status, holdExpiresAt, simulatedEmail]
+      properties:
+        appointmentId: { type: string, format: uuid }
+        referenceCode: { type: string, example: "BR-7F3K9Q" }
+        status:
+          type: string
+          enum: [PENDING_CONFIRMATION]
+        holdExpiresAt: { type: string, format: date-time }
+        simulatedEmail:
+          $ref: "#/components/schemas/SimulatedEmail"
+
+    ConfirmationResult:
+      type: object
+      required:
+        [appointmentId, referenceCode, status, accessToken, accessTokenExpiresAt, receiptEmail, branch, serviceType, date, startTime]
+      properties:
+        appointmentId: { type: string, format: uuid }
+        referenceCode: { type: string }
+        status:
+          type: string
+          enum: [CONFIRMED]
+        accessToken:
+          type: string
+          description: Short-lived appointment-scoped JWT (sub=appointmentId).
+        accessTokenExpiresAt: { type: string, format: date-time }
+        receiptEmail:
+          $ref: "#/components/schemas/SimulatedEmail"
+        branch:
+          $ref: "#/components/schemas/Branch"
+        serviceType:
+          $ref: "#/components/schemas/ServiceType"
+        date: { type: string, format: date }
+        startTime: { type: string, example: "10:30" }
+
+    Appointment:
+      type: object
+      required: [id, referenceCode, status, branch, serviceType, date, startTime]
+      properties:
+        id: { type: string, format: uuid }
+        referenceCode: { type: string }
+        status:
+          $ref: "#/components/schemas/AppointmentStatus"
+        branch:
+          $ref: "#/components/schemas/Branch"
+        serviceType:
+          $ref: "#/components/schemas/ServiceType"
+        date: { type: string, format: date }
+        startTime: { type: string, example: "10:30" }
+        createdAt: { type: string, format: date-time }
+
+    RescheduleRequest:
+      type: object
+      required: [newSlotId]
+      properties:
+        newSlotId: { type: string, format: uuid }
+
+    RescheduleRequestResult:
+      type: object
+      description: >
+        Returned by POST /appointments/{appointmentId}/reschedule-request. The appointment itself
+        hasn't moved yet at this point - status is included only for symmetry with AppointmentHold
+        and is always CONFIRMED, since (unlike a fresh booking hold) this appointment was already
+        confirmed before the request and stays that way throughout the pending window.
+      required: [appointmentId, referenceCode, status, rescheduleRequestExpiresAt, simulatedEmail]
+      properties:
+        appointmentId: { type: string, format: uuid }
+        referenceCode: { type: string, example: "BR-7F3K9Q" }
+        status:
+          type: string
+          enum: [CONFIRMED]
+        rescheduleRequestExpiresAt: { type: string, format: date-time }
+        simulatedEmail:
+          $ref: "#/components/schemas/SimulatedEmail"
+
+    CancellationPreview:
+      type: object
+      required: [referenceCode, branchName, serviceTypeName, date, startTime, alreadyCancelled]
+      properties:
+        referenceCode: { type: string }
+        branchName: { type: string }
+        serviceTypeName: { type: string }
+        date: { type: string, format: date }
+        startTime: { type: string, example: "10:30" }
+        alreadyCancelled:
+          type: boolean
+          description: True if this token's appointment was already cancelled previously.
+
+    CancellationResult:
+      type: object
+      required: [referenceCode, status]
+      properties:
+        referenceCode: { type: string }
+        status:
+          type: string
+          enum: [CANCELLED]
+
+    ProblemDetail:
+      type: object
+      description: RFC 7807 problem+json error shape used by every error response.
+      required: [type, title, status]
+      properties:
+        type: { type: string, format: uri, example: "about:blank" }
+        title: { type: string, example: "Slot no longer available" }
+        status: { type: integer, example: 409 }
+        detail: { type: string }
+        instance: { type: string, format: uri }
+
+    ValidationProblemDetail:
+      allOf:
+        - $ref: "#/components/schemas/ProblemDetail"
+        - type: object
+          properties:
+            errors:
+              type: object
+              description: Field name to its first validation message. Present for field-level failures.
+              additionalProperties:
+                type: string
+              example:
+                email: must be a well-formed email address
+
+    DirectoryValidationError:
+      description: >
+        Deliberately identical for every failure reason. Never indicates which submitted
+        field(s) failed to match.
+      allOf:
+        - $ref: "#/components/schemas/ProblemDetail"
+        - type: object
+          required: [suggestNewAccount]
+          properties:
+            suggestNewAccount:
+              type: boolean
+              description: Always true on this error — presence is never conditional, to avoid leaking match information.
+              example: true
+
+    ConflictProblemDetail:
+      description: >
+        A 409 that may carry a stable, machine-readable code. Clients should match on code rather
+        than on the detail text, which is free to change.
+      allOf:
+        - $ref: "#/components/schemas/ProblemDetail"
+        - type: object
+          properties:
+            code:
+              type: string
+              enum: [SLOT_FULL]
+              description: >
+                SLOT_FULL when the requested slot has no remaining capacity. Absent for every
+                other conflict.
+              example: SLOT_FULL

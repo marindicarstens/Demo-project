@@ -1,0 +1,40 @@
+<mat-form-field appearance="outline" class="date-field">
+  <mat-label>{{ dateLabel() }}</mat-label>
+  <input
+    matInput
+    [matDatepicker]="picker"
+    [ngModel]="date()"
+    (ngModelChange)="onDateInput($event)"
+    [min]="min()"
+    [max]="max()"
+    [errorStateMatcher]="showErrorWhileTyping"
+  />
+  <mat-datepicker-toggle matIconSuffix [for]="picker"></mat-datepicker-toggle>
+  <mat-datepicker #picker></mat-datepicker>
+  <mat-error>Pick a date within the next 14 days</mat-error>
+</mat-form-field>
+
+<!-- Always present, so screen readers announce its text as it changes. -->
+<p class="visually-hidden" role="status">{{ slots.isLoading() ? 'Loading available times' : '' }}</p>
+@if (slots.isLoading()) {
+  <mat-spinner diameter="28" class="slot-spinner" aria-hidden="true" />
+} @else if (slots.error()) {
+  <p class="slot-error" role="alert">Couldn't load times. Please try another date or try again.</p>
+  <button mat-stroked-button type="button" (click)="slots.reload()">Try again</button>
+} @else if (slots.hasValue() && slots.value().length > 0) {
+  <div class="slot-grid">
+    @for (slot of slots.value(); track slot.id) {
+      <button
+        type="button"
+        class="slot-button"
+        [class.selected]="selectedSlotId() === slot.id"
+        [attr.aria-pressed]="selectedSlotId() === slot.id"
+        (click)="slotSelected.emit(slot)"
+      >
+        {{ slot.startTime | time }}
+      </button>
+    }
+  </div>
+} @else {
+  <p class="no-slots">No available times on this date — try another day.</p>
+}

@@ -1,0 +1,40 @@
+@use '../../../styles/shared';
+
+.reschedule-confirm-page {
+  padding-block: 48px;
+  max-width: 480px;
+}
+
+.eyebrow {
+  @include shared.eyebrow;
+}
+
+h1 {
+  font-family: var(--db-font-display);
+  color: var(--mat-sys-tertiary);
+  font-size: clamp(22px, 4vw, 30px);
+  margin: 0 0 12px;
+}
+
+.sub {
+  color: var(--mat-sys-on-surface-variant);
+  font-size: 14.5px;
+  margin: 0 0 24px;
+}
+
+.details {
+  display: flex;
+  flex-direction: column;
+  gap: 4px;
+  padding: 16px 18px;
+  border-radius: var(--db-radius-card);
+  background: var(--mat-sys-surface-container-low);
+  border: 1px solid var(--mat-sys-outline-variant);
+  margin-bottom: 24px;
+  font-size: 14.5px;
+
+  .reference {
+    color: var(--mat-sys-on-surface-variant);
+    font-size: 13px;
+  }
+}

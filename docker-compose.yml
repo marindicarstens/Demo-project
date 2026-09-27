@@ -1,0 +1,86 @@
+services:
+  postgres:
+    image: postgres:16-alpine
+    environment:
+      POSTGRES_DB: ${POSTGRES_DB}
+      POSTGRES_USER: ${POSTGRES_USER}
+      POSTGRES_PASSWORD: ${POSTGRES_PASSWORD}
+    # Loopback only: the backend reaches it over app-net; host-side dev tools use 127.0.0.1.
+    ports:
+      - "127.0.0.1:${POSTGRES_PORT:-5432}:5432"
+    volumes:
+      - postgres-data:/var/lib/postgresql/data
+    networks:
+      - app-net
+    healthcheck:
+      test: ["CMD-SHELL", "pg_isready -U ${POSTGRES_USER} -d ${POSTGRES_DB}"]
+      interval: 5s
+      timeout: 3s
+      retries: 10
+
+  redis:
+    image: redis:7-alpine
+    ports:
+      - "127.0.0.1:${REDIS_PORT:-6379}:6379"
+    networks:
+      - app-net
+    healthcheck:
+      test: ["CMD", "redis-cli", "ping"]
+      interval: 5s
+      timeout: 3s
+      retries: 10
+
+  backend:
+    build:
+      context: ./backend
+    environment:
+      SPRING_PROFILES_ACTIVE: ${SPRING_PROFILES_ACTIVE:-docker}
+      POSTGRES_DB: ${POSTGRES_DB}
+      POSTGRES_USER: ${POSTGRES_USER}
+      POSTGRES_PASSWORD: ${POSTGRES_PASSWORD}
+      APP_JWT_SIGNING_SECRET: ${APP_JWT_SIGNING_SECRET}
+      APP_CONFIRMATION_TOKEN_TTL_MINUTES: ${APP_CONFIRMATION_TOKEN_TTL_MINUTES:-1}
+      APP_RESCHEDULE_MIN_NOTICE_HOURS: ${APP_RESCHEDULE_MIN_NOTICE_HOURS:-2}
+      FRONTEND_PORT: ${FRONTEND_PORT:-4200}
+      APP_RATE_LIMIT_BOOKING_CREATE_MAX_ATTEMPTS: ${APP_RATE_LIMIT_BOOKING_CREATE_MAX_ATTEMPTS:-200}
+      APP_RATE_LIMIT_LOOKUP_MAX_ATTEMPTS: ${APP_RATE_LIMIT_LOOKUP_MAX_ATTEMPTS:-200}
+      APP_RATE_LIMIT_DIRECTORY_VALIDATION_MAX_ATTEMPTS: ${APP_RATE_LIMIT_DIRECTORY_VALIDATION_MAX_ATTEMPTS:-5}
+      APP_RATE_LIMIT_WINDOW: ${APP_RATE_LIMIT_WINDOW:-PT15M}
+    # Loopback only, for Swagger UI and debugging - browsers reach the API through Nginx's /api.
+    ports:
+      - "127.0.0.1:${BACKEND_PORT:-8080}:8080"
+    networks:
+      - app-net
+    depends_on:
+      postgres:
+        condition: service_healthy
+      redis:
+        condition: service_healthy
+    healthcheck:
+      test: ["CMD", "curl", "-f", "http://127.0.0.1:8080/actuator/health"]
+      interval: 10s
+      timeout: 3s
+      retries: 10
+      start_period: 30s
+
+  frontend:
+    build:
+      context: ./frontend
+    ports:
+      - "${FRONTEND_PORT:-4200}:80"
+    networks:
+      app-net:
+        # The backend trusts X-Forwarded-For only from this address (APP_TRUSTED_PROXY).
+        ipv4_address: 172.28.0.10
+    depends_on:
+      backend:
+        condition: service_healthy
+
+networks:
+  app-net:
+    ipam:
+      config:
+        - subnet: 172.28.0.0/24
+
+volumes:
+  postgres-data:

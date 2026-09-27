@@ -1,0 +1,21 @@
+# Activated via SPRING_PROFILES_ACTIVE=docker (see .env.example) when running under docker-compose.
+# Hostnames below are Docker Compose service names, resolved on the internal compose network -
+# not the host-mapped ports in .env.example, which are only for connecting from outside Docker.
+spring:
+  datasource:
+    url: jdbc:postgresql://postgres:5432/${POSTGRES_DB}
+    username: ${POSTGRES_USER}
+    password: ${POSTGRES_PASSWORD}
+  data:
+    redis:
+      host: redis
+      port: 6379
+
+app:
+  jwt-signing-secret: ${APP_JWT_SIGNING_SECRET}
+  booking:
+    confirmation-token-ttl: ${APP_CONFIRMATION_TOKEN_TTL_MINUTES:1} # minutes
+    reschedule-min-notice: ${APP_RESCHEDULE_MIN_NOTICE_HOURS:2} # hours
+  # The browser always reaches the frontend via its host-mapped port, never the compose-network
+  # hostname - this is what the browser sends as Origin, so CORS must match it, not "frontend".
+  frontend-origin: http://localhost:${FRONTEND_PORT:4200}

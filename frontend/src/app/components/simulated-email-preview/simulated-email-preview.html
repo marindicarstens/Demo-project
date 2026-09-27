@@ -1,0 +1,13 @@
+<div class="email-preview">
+  <div class="email-chrome">
+    <span class="simulated-badge">SIMULATED — no message was actually sent</span>
+    <div class="email-meta">
+      <div><span class="meta-label">From</span> {{ email().from }}</div>
+      <div><span class="meta-label">Subject</span> {{ email().subject }}</div>
+    </div>
+  </div>
+  <pre class="email-body">{{ email().bodyText }}</pre>
+  @if (email().actionLink) {
+    <a class="pill-cta" [href]="email().actionLink">{{ actionLabel() }}</a>
+  }
+</div>
