@@ -175,6 +175,27 @@
 		</dependency>
 	</dependencies>
 
+	<!-- CVE-2026-68497 (jackson-databind CPU DoS via unbounded numeric parsing, HIGH) - found by
+	     the Trivy image scan wired up in CI. Neither jackson-databind is a direct dependency: the
+	     Jackson 3 (tools.jackson) copy comes in transitively via flyway-core, and the Jackson 2
+	     (com.fasterxml.jackson) copy via springdoc's swagger-core-jakarta - Boot's own BOM manages
+	     both, but not yet at the patched versions. Pinned ahead the same way as tomcat.version
+	     above. -->
+	<dependencyManagement>
+		<dependencies>
+			<dependency>
+				<groupId>tools.jackson.core</groupId>
+				<artifactId>jackson-databind</artifactId>
+				<version>3.1.6</version>
+			</dependency>
+			<dependency>
+				<groupId>com.fasterxml.jackson.core</groupId>
+				<artifactId>jackson-databind</artifactId>
+				<version>2.21.6</version>
+			</dependency>
+		</dependencies>
+	</dependencyManagement>
+
 	<build>
 		<plugins>
 			<plugin>
