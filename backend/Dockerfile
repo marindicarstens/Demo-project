@@ -14,8 +14,11 @@ RUN ./mvnw package -DskipTests -B \
 # --- Runtime stage ---
 FROM eclipse-temurin:25-jre AS runtime
 
-# curl only, for the container healthcheck below - not needed by the app itself.
+# upgrade first: patches OS packages already on the base image (e.g. openssl/libssl3t64) that
+# were built before their fix shipped - installing curl alone wouldn't touch those.
+# curl itself is only for the container healthcheck below - not needed by the app itself.
 RUN apt-get update \
+    && apt-get upgrade -y \
     && apt-get install -y --no-install-recommends curl \
     && rm -rf /var/lib/apt/lists/*
 
